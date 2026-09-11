@@ -1,0 +1,495 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cahier du fût</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,700&family=Inter:wght@400;500;600&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #211d19;
+    --panel: #2b2620;
+    --panel-raised: #332d25;
+    --line: #443c30;
+    --cream: #f0e6d4;
+    --muted: #a3937c;
+    --copper: #cf9146;
+    --copper-dim: #8a6636;
+    --foam: #e8dcc0;
+    --olive: #8b9a6a;
+    --rust: #b25a41;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0;
+    background: var(--bg);
+    color: var(--cream);
+    font-family: 'Inter', sans-serif;
+    -webkit-tap-highlight-color: transparent;
+  }
+  body {
+    min-height: 100vh;
+    padding: 28px 18px 100px;
+    max-width: 480px;
+    margin: 0 auto;
+  }
+  h1, h2, .display {
+    font-family: 'Bricolage Grotesque', sans-serif;
+  }
+  .eyebrow {
+    color: var(--muted);
+    font-size: 13px;
+    letter-spacing: 0.02em;
+    margin: 0 0 2px;
+  }
+  h1 {
+    font-size: 26px;
+    font-weight: 700;
+    margin: 0 0 22px;
+    color: var(--foam);
+  }
+  .hero {
+    border-bottom: 1px solid var(--line);
+    padding-bottom: 20px;
+    margin-bottom: 24px;
+  }
+  .hero-amount {
+    font-size: 44px;
+    font-weight: 700;
+    color: var(--copper);
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+  }
+  .hero-label {
+    color: var(--muted);
+    font-size: 14px;
+    margin-top: 6px;
+  }
+  section { margin-bottom: 28px; }
+  section h2 {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--muted);
+    margin: 0 0 12px;
+    font-family: 'Inter', sans-serif;
+  }
+  .ledger-row {
+    display: flex;
+    align-items: baseline;
+    padding: 10px 0;
+    border-bottom: 1px dotted var(--line);
+    cursor: pointer;
+  }
+  .ledger-row:last-child { border-bottom: none; }
+  .ledger-name { color: var(--cream); font-size: 16px; }
+  .ledger-fill {
+    flex: 1;
+    border-bottom: 1px dotted var(--copper-dim);
+    margin: 0 8px;
+    transform: translateY(-4px);
+  }
+  .ledger-amount {
+    font-family: 'Space Mono', monospace;
+    color: var(--foam);
+    font-size: 15px;
+  }
+  .empty {
+    color: var(--muted);
+    font-size: 14px;
+    padding: 14px 0;
+    border: 1px dashed var(--line);
+    border-radius: 8px;
+    text-align: center;
+  }
+  form {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 16px;
+  }
+  .field { margin-bottom: 12px; }
+  .field:last-of-type { margin-bottom: 0; }
+  label {
+    display: block;
+    font-size: 13px;
+    color: var(--muted);
+    margin-bottom: 6px;
+  }
+  select, input {
+    width: 100%;
+    background: var(--panel-raised);
+    border: 1px solid var(--line);
+    color: var(--cream);
+    font-family: 'Inter', sans-serif;
+    font-size: 15px;
+    padding: 10px 12px;
+    border-radius: 8px;
+    outline: none;
+  }
+  select:focus, input:focus { border-color: var(--copper); }
+  .row2 { display: flex; gap: 10px; }
+  .row2 > .field { flex: 1; }
+  button {
+    font-family: 'Inter', sans-serif;
+    font-weight: 600;
+    font-size: 15px;
+    border: none;
+    border-radius: 8px;
+    padding: 12px;
+    cursor: pointer;
+  }
+  .btn-primary {
+    width: 100%;
+    background: var(--copper);
+    color: #241d15;
+    margin-top: 14px;
+  }
+  .btn-primary:active { background: var(--copper-dim); }
+  .add-member {
+    display: flex;
+    gap: 8px;
+    margin-top: 12px;
+  }
+  .add-member input { flex: 1; }
+  .add-member button {
+    background: transparent;
+    border: 1px solid var(--copper-dim);
+    color: var(--copper);
+    padding: 10px 14px;
+  }
+  .history-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--line);
+  }
+  .history-item:last-child { border-bottom: none; }
+  .history-left { display: flex; flex-direction: column; }
+  .history-name { font-size: 15px; color: var(--cream); }
+  .history-meta { font-size: 12px; color: var(--muted); margin-top: 2px; }
+  .history-right { display: flex; align-items: center; gap: 10px; }
+  .history-amount {
+    font-family: 'Space Mono', monospace;
+    color: var(--olive);
+    font-size: 15px;
+  }
+  .del-btn {
+    background: transparent;
+    border: none;
+    color: var(--rust);
+    font-size: 18px;
+    padding: 4px 6px;
+    line-height: 1;
+  }
+  .date-group {
+    font-size: 12px;
+    color: var(--muted);
+    margin: 16px 0 4px;
+  }
+  .date-group:first-child { margin-top: 0; }
+  .status {
+    text-align: center;
+    color: var(--muted);
+    font-size: 14px;
+    padding: 60px 0;
+  }
+  .toast {
+    position: fixed;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--panel-raised);
+    border: 1px solid var(--copper-dim);
+    color: var(--foam);
+    padding: 10px 18px;
+    border-radius: 20px;
+    font-size: 13px;
+    opacity: 0;
+    transition: opacity 0.25s;
+    pointer-events: none;
+  }
+  .toast.show { opacity: 1; }
+  .filter-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: var(--panel-raised);
+    border: 1px solid var(--copper-dim);
+    color: var(--copper);
+    font-size: 13px;
+    padding: 6px 10px;
+    border-radius: 16px;
+    margin-bottom: 12px;
+  }
+  .filter-tag button {
+    background: none;
+    border: none;
+    color: var(--copper);
+    padding: 0;
+    font-size: 15px;
+  }
+</style>
+</head>
+<body>
+
+<div id="app">
+  <div class="status">Ouverture du cahier…</div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+const STORAGE_KEY = 'keg-tracker-data';
+let data = { members: [], payments: [] };
+let loaded = false;
+let filterMemberId = null;
+
+function uid() {
+  return Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+}
+
+function todayISO() {
+  const d = new Date();
+  return d.toISOString().slice(0, 10);
+}
+
+function fmt(n) {
+  return n.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €';
+}
+
+function fmtDate(iso) {
+  const d = new Date(iso + 'T00:00:00');
+  return d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' });
+}
+
+async function loadData() {
+  try {
+    const res = await window.storage.get(STORAGE_KEY, true);
+    if (res && res.value) {
+      data = JSON.parse(res.value);
+      if (!data.members) data.members = [];
+      if (!data.payments) data.payments = [];
+    }
+  } catch (e) {
+    console.log('Aucune donnée existante, on part de zéro.', e);
+    data = { members: [], payments: [] };
+  }
+  loaded = true;
+  render();
+}
+
+async function persist() {
+  try {
+    const result = await window.storage.set(STORAGE_KEY, JSON.stringify(data), true);
+    if (!result) showToast("Échec de l'enregistrement, réessaie.");
+  } catch (e) {
+    console.error('Storage error:', e);
+    showToast("Échec de l'enregistrement, réessaie.");
+  }
+}
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 1800);
+}
+
+function memberName(id) {
+  const m = data.members.find(m => m.id === id);
+  return m ? m.name : 'Ancien membre';
+}
+
+function totalsByMember() {
+  const totals = {};
+  data.members.forEach(m => totals[m.id] = 0);
+  data.payments.forEach(p => {
+    totals[p.memberId] = (totals[p.memberId] || 0) + p.amount;
+  });
+  return totals;
+}
+
+function grandTotal() {
+  return data.payments.reduce((s, p) => s + p.amount, 0);
+}
+
+function addMember(name) {
+  name = name.trim();
+  if (!name) return;
+  data.members.push({ id: uid(), name });
+  persist();
+  render();
+}
+
+function addPayment(memberId, amount, date, note) {
+  data.payments.push({ id: uid(), memberId, amount, date, note });
+  persist();
+  render();
+  showToast('Paiement enregistré');
+}
+
+function deletePayment(id) {
+  data.payments = data.payments.filter(p => p.id !== id);
+  persist();
+  render();
+}
+
+function render() {
+  const app = document.getElementById('app');
+  if (!loaded) {
+    app.innerHTML = '<div class="status">Ouverture du cahier…</div>';
+    return;
+  }
+
+  const totals = totalsByMember();
+  const sortedMembers = [...data.members].sort((a, b) => (totals[b.id] || 0) - (totals[a.id] || 0));
+
+  const ledgerHTML = sortedMembers.length
+    ? sortedMembers.map(m => `
+        <div class="ledger-row" data-member="${m.id}">
+          <span class="ledger-name">${escapeHTML(m.name)}</span>
+          <span class="ledger-fill"></span>
+          <span class="ledger-amount">${fmt(totals[m.id] || 0)}</span>
+        </div>
+      `).join('')
+    : '<div class="empty">Ajoute les membres du club pour démarrer le cahier.</div>';
+
+  const memberOptions = data.members.map(m => `<option value="${m.id}">${escapeHTML(m.name)}</option>`).join('');
+
+  let payments = [...data.payments].sort((a, b) => b.date.localeCompare(a.date) || b.id.localeCompare(a.id));
+  if (filterMemberId) payments = payments.filter(p => p.memberId === filterMemberId);
+
+  let historyHTML = '';
+  let lastDate = null;
+  if (payments.length === 0) {
+    historyHTML = '<div class="empty">Aucun paiement enregistré pour le moment.</div>';
+  } else {
+    payments.forEach(p => {
+      if (p.date !== lastDate) {
+        historyHTML += `<div class="date-group">${fmtDate(p.date)}</div>`;
+        lastDate = p.date;
+      }
+      historyHTML += `
+        <div class="history-item">
+          <div class="history-left">
+            <span class="history-name">${escapeHTML(memberName(p.memberId))}</span>
+            ${p.note ? `<span class="history-meta">${escapeHTML(p.note)}</span>` : ''}
+          </div>
+          <div class="history-right">
+            <span class="history-amount">+${fmt(p.amount)}</span>
+            <button class="del-btn" data-del="${p.id}" title="Supprimer">×</button>
+          </div>
+        </div>
+      `;
+    });
+  }
+
+  const filterTagHTML = filterMemberId
+    ? `<div class="filter-tag">${escapeHTML(memberName(filterMemberId))} <button id="clear-filter">×</button></div>`
+    : '';
+
+  app.innerHTML = `
+    <p class="eyebrow">Club — suivi de la tireuse</p>
+    <h1>Cahier du fût</h1>
+
+    <div class="hero">
+      <div class="hero-amount">${fmt(grandTotal())}</div>
+      <div class="hero-label">collectés au total pour la bière</div>
+    </div>
+
+    <section>
+      <h2>Qui a payé combien</h2>
+      ${ledgerHTML}
+      <div class="add-member">
+        <input type="text" id="new-member-name" placeholder="Nom d'un nouveau membre">
+        <button id="add-member-btn">Ajouter</button>
+      </div>
+    </section>
+
+    <section>
+      <h2>Enregistrer un paiement</h2>
+      <form id="payment-form">
+        <div class="field">
+          <label for="pay-member">Membre</label>
+          <select id="pay-member" ${data.members.length === 0 ? 'disabled' : ''}>
+            ${data.members.length ? memberOptions : '<option value="">Ajoute d\'abord un membre</option>'}
+          </select>
+        </div>
+        <div class="row2">
+          <div class="field">
+            <label for="pay-amount">Montant (€)</label>
+            <input type="number" id="pay-amount" step="0.01" min="0" placeholder="5.00" inputmode="decimal">
+          </div>
+          <div class="field">
+            <label for="pay-date">Date</label>
+            <input type="date" id="pay-date" value="${todayISO()}">
+          </div>
+        </div>
+        <div class="field">
+          <label for="pay-note">Note (optionnel)</label>
+          <input type="text" id="pay-note" placeholder="ex : 3 pintes">
+        </div>
+        <button type="submit" class="btn-primary" ${data.members.length === 0 ? 'disabled' : ''}>Enregistrer</button>
+      </form>
+    </section>
+
+    <section>
+      <h2>Historique</h2>
+      ${filterTagHTML}
+      ${historyHTML}
+    </section>
+  `;
+
+  document.getElementById('add-member-btn').addEventListener('click', () => {
+    const input = document.getElementById('new-member-name');
+    addMember(input.value);
+    input.value = '';
+  });
+  document.getElementById('new-member-name').addEventListener('keydown', e => {
+    if (e.key === 'Enter') { e.preventDefault(); document.getElementById('add-member-btn').click(); }
+  });
+
+  document.getElementById('payment-form').addEventListener('submit', e => {
+    e.preventDefault();
+    const memberId = document.getElementById('pay-member').value;
+    const amount = parseFloat(document.getElementById('pay-amount').value);
+    const date = document.getElementById('pay-date').value || todayISO();
+    const note = document.getElementById('pay-note').value;
+    if (!memberId || !amount || amount <= 0) {
+      showToast('Choisis un membre et un montant valide.');
+      return;
+    }
+    addPayment(memberId, amount, date, note);
+    document.getElementById('pay-amount').value = '';
+    document.getElementById('pay-note').value = '';
+  });
+
+  document.querySelectorAll('[data-del]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      if (confirm('Supprimer ce paiement ?')) deletePayment(btn.getAttribute('data-del'));
+    });
+  });
+
+  document.querySelectorAll('.ledger-row').forEach(row => {
+    row.addEventListener('click', () => {
+      const id = row.getAttribute('data-member');
+      filterMemberId = filterMemberId === id ? null : id;
+      render();
+    });
+  });
+
+  const clearFilterBtn = document.getElementById('clear-filter');
+  if (clearFilterBtn) clearFilterBtn.addEventListener('click', () => { filterMemberId = null; render(); });
+}
+
+function escapeHTML(str) {
+  const div = document.createElement('div');
+  div.textContent = str;
+  return div.innerHTML;
+}
+
+loadData();
+</script>
+</body>
+</html>
