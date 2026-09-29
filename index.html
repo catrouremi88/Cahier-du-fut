@@ -287,10 +287,11 @@ let membersRef = null;
 let paymentsRef = null;
 
 let members = [];   // [{id, name}]
-let payments = [];  // [{id, memberId, amount, date, note}]
+let payments = [];  // [{id, memberId, collectorId, amount, date, note}]
 let membersLoaded = false;
 let paymentsLoaded = false;
 let filterMemberId = null;
+let filterCollectorId = null;
 
 function todayISO() {
   const d = new Date();
@@ -327,6 +328,16 @@ function totalsByMember() {
   return totals;
 }
 
+function totalsByCollector() {
+  const totals = {};
+  members.forEach(m => totals[m.id] = 0);
+  payments.forEach(p => {
+    if (!p.collectorId) return;
+    totals[p.collectorId] = (totals[p.collectorId] || 0) + p.amount;
+  });
+  return totals;
+}
+
 function grandTotal() {
   return payments.reduce((s, p) => s + p.amount, 0);
 }
@@ -341,10 +352,10 @@ function addMember(name) {
   });
 }
 
-function addPayment(memberId, amount, date, note) {
+function addPayment(memberId, collectorId, amount, date, note) {
   if (!paymentsRef) return;
   const newRef = push(paymentsRef);
-  set(newRef, { memberId, amount, date, note: note || '' })
+  set(newRef, { memberId, collectorId: collectorId || '', amount, date, note: note || '' })
     .then(() => showToast('Paiement enregistré'))
     .catch(e => {
       console.error(e);
@@ -386,10 +397,26 @@ function render() {
       `).join('')
     : '<div class="empty">Ajoute les membres du club pour démarrer le cahier.</div>';
 
+  const collectorTotals = totalsByCollector();
+  const sortedCollectors = [...members]
+    .filter(m => (collectorTotals[m.id] || 0) > 0)
+    .sort((a, b) => (collectorTotals[b.id] || 0) - (collectorTotals[a.id] || 0));
+
+  const collectorLedgerHTML = sortedCollectors.length
+    ? sortedCollectors.map(m => `
+        <div class="ledger-row" data-collector="${m.id}">
+          <span class="ledger-name">${escapeHTML(m.name)}</span>
+          <span class="ledger-fill"></span>
+          <span class="ledger-amount">${fmt(collectorTotals[m.id] || 0)}</span>
+        </div>
+      `).join('')
+    : '<div class="empty">Aucun encaissement rattaché à un membre pour l\'instant.</div>';
+
   const memberOptions = members.map(m => `<option value="${m.id}">${escapeHTML(m.name)}</option>`).join('');
 
   let visiblePayments = [...payments].sort((a, b) => b.date.localeCompare(a.date) || b.id.localeCompare(a.id));
   if (filterMemberId) visiblePayments = visiblePayments.filter(p => p.memberId === filterMemberId);
+  if (filterCollectorId) visiblePayments = visiblePayments.filter(p => p.collectorId === filterCollectorId);
 
   let historyHTML = '';
   let lastDate = null;
@@ -405,6 +432,7 @@ function render() {
         <div class="history-item">
           <div class="history-left">
             <span class="history-name">${escapeHTML(memberName(p.memberId))}</span>
+            ${p.collectorId ? `<span class="history-meta">encaissé par ${escapeHTML(memberName(p.collectorId))}</span>` : ''}
             ${p.note ? `<span class="history-meta">${escapeHTML(p.note)}</span>` : ''}
           </div>
           <div class="history-right">
@@ -417,7 +445,9 @@ function render() {
   }
 
   const filterTagHTML = filterMemberId
-    ? `<div class="filter-tag">${escapeHTML(memberName(filterMemberId))} <button id="clear-filter">×</button></div>`
+    ? `<div class="filter-tag">${escapeHTML(memberName(filterMemberId))} a payé <button id="clear-filter">×</button></div>`
+    : filterCollectorId
+    ? `<div class="filter-tag">encaissé par ${escapeHTML(memberName(filterCollectorId))} <button id="clear-filter">×</button></div>`
     : '';
 
   app.innerHTML = `
@@ -442,9 +472,16 @@ function render() {
       <h2>Enregistrer un paiement</h2>
       <form id="payment-form">
         <div class="field">
-          <label for="pay-member">Membre</label>
+          <label for="pay-member">Qui a payé</label>
           <select id="pay-member" ${members.length === 0 ? 'disabled' : ''}>
             ${members.length ? memberOptions : '<option value="">Ajoute d\'abord un membre</option>'}
+          </select>
+        </div>
+        <div class="field">
+          <label for="pay-collector">Qui a encaissé sur le SumUp</label>
+          <select id="pay-collector" ${members.length === 0 ? 'disabled' : ''}>
+            <option value="">Non renseigné</option>
+            ${memberOptions}
           </select>
         </div>
         <div class="row2">
@@ -466,6 +503,11 @@ function render() {
     </section>
 
     <section>
+      <h2>Qui a encaissé combien (SumUp)</h2>
+      ${collectorLedgerHTML}
+    </section>
+
+    <section>
       <h2>Historique</h2>
       ${filterTagHTML}
       ${historyHTML}
@@ -484,6 +526,7 @@ function render() {
   document.getElementById('payment-form').addEventListener('submit', e => {
     e.preventDefault();
     const memberId = document.getElementById('pay-member').value;
+    const collectorId = document.getElementById('pay-collector').value;
     const amount = parseFloat(document.getElementById('pay-amount').value);
     const date = document.getElementById('pay-date').value || todayISO();
     const note = document.getElementById('pay-note').value;
@@ -491,7 +534,7 @@ function render() {
       showToast('Choisis un membre et un montant valide.');
       return;
     }
-    addPayment(memberId, amount, date, note);
+    addPayment(memberId, collectorId, amount, date, note);
     document.getElementById('pay-amount').value = '';
     document.getElementById('pay-note').value = '';
   });
@@ -502,16 +545,26 @@ function render() {
     });
   });
 
-  document.querySelectorAll('.ledger-row').forEach(row => {
+  document.querySelectorAll('[data-member]').forEach(row => {
     row.addEventListener('click', () => {
       const id = row.getAttribute('data-member');
+      filterCollectorId = null;
       filterMemberId = filterMemberId === id ? null : id;
       render();
     });
   });
 
+  document.querySelectorAll('[data-collector]').forEach(row => {
+    row.addEventListener('click', () => {
+      const id = row.getAttribute('data-collector');
+      filterMemberId = null;
+      filterCollectorId = filterCollectorId === id ? null : id;
+      render();
+    });
+  });
+
   const clearFilterBtn = document.getElementById('clear-filter');
-  if (clearFilterBtn) clearFilterBtn.addEventListener('click', () => { filterMemberId = null; render(); });
+  if (clearFilterBtn) clearFilterBtn.addEventListener('click', () => { filterMemberId = null; filterCollectorId = null; render(); });
 }
 
 function escapeHTML(str) {
@@ -540,6 +593,7 @@ function startListeners() {
     payments = Object.keys(val).map(id => ({
       id,
       memberId: val[id].memberId,
+      collectorId: val[id].collectorId || '',
       amount: val[id].amount,
       date: val[id].date,
       note: val[id].note || ''
