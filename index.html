@@ -146,6 +146,7 @@
     margin-top: 14px;
   }
   .btn-primary:active { background: var(--copper-dim); }
+  .btn-primary:disabled { opacity: 0.5; }
   .add-member {
     display: flex;
     gap: 8px;
@@ -195,6 +196,15 @@
     font-size: 14px;
     padding: 60px 0;
   }
+  .error-banner {
+    background: #3a2620;
+    border: 1px solid var(--rust);
+    color: var(--cream);
+    border-radius: 8px;
+    padding: 12px 14px;
+    font-size: 13px;
+    margin-bottom: 20px;
+  }
   .toast {
     position: fixed;
     bottom: 20px;
@@ -209,6 +219,8 @@
     opacity: 0;
     transition: opacity 0.25s;
     pointer-events: none;
+    max-width: 90%;
+    text-align: center;
   }
   .toast.show { opacity: 1; }
   .filter-tag {
@@ -239,15 +251,41 @@
 </div>
 <div class="toast" id="toast"></div>
 
-<script>
-const STORAGE_KEY = 'keg-tracker-data';
-let data = { members: [], payments: [] };
-let loaded = false;
-let filterMemberId = null;
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import {
+  getDatabase, ref, onValue, push, remove, set
+} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
 
-function uid() {
-  return Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+// Configuration de ton projet Firebase
+const firebaseConfig = {
+  apiKey: "AIzaSyAudPMmUNagEZUGvm6gu0EvIgvw_0OuDWA",
+  authDomain: "cahier-du-fut.firebaseapp.com",
+  databaseURL: "https://cahier-du-fut-default-rtdb.europe-west1.firebasedatabase.app",
+  projectId: "cahier-du-fut",
+  storageBucket: "cahier-du-fut.firebasestorage.app",
+  messagingSenderId: "440799283443",
+  appId: "1:440799283443:web:96ffb50dd4e7cc378a8f86"
+};
+
+let fbApp, db;
+let connectionError = false;
+try {
+  fbApp = initializeApp(firebaseConfig);
+  db = getDatabase(fbApp);
+} catch (e) {
+  console.error('Firebase init error:', e);
+  connectionError = true;
 }
+
+const membersRef = db ? ref(db, 'members') : null;
+const paymentsRef = db ? ref(db, 'payments') : null;
+
+let members = [];   // [{id, name}]
+let payments = [];  // [{id, memberId, amount, date, note}]
+let membersLoaded = false;
+let paymentsLoaded = false;
+let filterMemberId = null;
 
 function todayISO() {
   const d = new Date();
@@ -263,87 +301,75 @@ function fmtDate(iso) {
   return d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' });
 }
 
-async function loadData() {
-  try {
-    const res = await window.storage.get(STORAGE_KEY, true);
-    if (res && res.value) {
-      data = JSON.parse(res.value);
-      if (!data.members) data.members = [];
-      if (!data.payments) data.payments = [];
-    }
-  } catch (e) {
-    console.log('Aucune donnée existante, on part de zéro.', e);
-    data = { members: [], payments: [] };
-  }
-  loaded = true;
-  render();
-}
-
-async function persist() {
-  try {
-    const result = await window.storage.set(STORAGE_KEY, JSON.stringify(data), true);
-    if (!result) showToast("Échec de l'enregistrement, réessaie.");
-  } catch (e) {
-    console.error('Storage error:', e);
-    showToast("Échec de l'enregistrement, réessaie.");
-  }
-}
-
 function showToast(msg) {
   const t = document.getElementById('toast');
   t.textContent = msg;
   t.classList.add('show');
-  setTimeout(() => t.classList.remove('show'), 1800);
+  setTimeout(() => t.classList.remove('show'), 2200);
 }
 
 function memberName(id) {
-  const m = data.members.find(m => m.id === id);
+  const m = members.find(m => m.id === id);
   return m ? m.name : 'Ancien membre';
 }
 
 function totalsByMember() {
   const totals = {};
-  data.members.forEach(m => totals[m.id] = 0);
-  data.payments.forEach(p => {
+  members.forEach(m => totals[m.id] = 0);
+  payments.forEach(p => {
     totals[p.memberId] = (totals[p.memberId] || 0) + p.amount;
   });
   return totals;
 }
 
 function grandTotal() {
-  return data.payments.reduce((s, p) => s + p.amount, 0);
+  return payments.reduce((s, p) => s + p.amount, 0);
 }
 
 function addMember(name) {
   name = name.trim();
-  if (!name) return;
-  data.members.push({ id: uid(), name });
-  persist();
-  render();
+  if (!name || !membersRef) return;
+  const newRef = push(membersRef);
+  set(newRef, { name }).catch(e => {
+    console.error(e);
+    showToast("Échec de l'ajout, réessaie.");
+  });
 }
 
 function addPayment(memberId, amount, date, note) {
-  data.payments.push({ id: uid(), memberId, amount, date, note });
-  persist();
-  render();
-  showToast('Paiement enregistré');
+  if (!paymentsRef) return;
+  const newRef = push(paymentsRef);
+  set(newRef, { memberId, amount, date, note: note || '' })
+    .then(() => showToast('Paiement enregistré'))
+    .catch(e => {
+      console.error(e);
+      showToast("Échec de l'enregistrement, réessaie.");
+    });
 }
 
 function deletePayment(id) {
-  data.payments = data.payments.filter(p => p.id !== id);
-  persist();
-  render();
+  if (!db) return;
+  remove(ref(db, 'payments/' + id)).catch(e => {
+    console.error(e);
+    showToast('Échec de la suppression, réessaie.');
+  });
 }
 
 function render() {
   const app = document.getElementById('app');
-  if (!loaded) {
+
+  if (connectionError) {
+    app.innerHTML = '<div class="error-banner">Impossible de se connecter à la base. Vérifie la configuration Firebase dans le fichier.</div>';
+    return;
+  }
+
+  if (!membersLoaded || !paymentsLoaded) {
     app.innerHTML = '<div class="status">Ouverture du cahier…</div>';
     return;
   }
 
   const totals = totalsByMember();
-  const sortedMembers = [...data.members].sort((a, b) => (totals[b.id] || 0) - (totals[a.id] || 0));
+  const sortedMembers = [...members].sort((a, b) => (totals[b.id] || 0) - (totals[a.id] || 0));
 
   const ledgerHTML = sortedMembers.length
     ? sortedMembers.map(m => `
@@ -355,17 +381,17 @@ function render() {
       `).join('')
     : '<div class="empty">Ajoute les membres du club pour démarrer le cahier.</div>';
 
-  const memberOptions = data.members.map(m => `<option value="${m.id}">${escapeHTML(m.name)}</option>`).join('');
+  const memberOptions = members.map(m => `<option value="${m.id}">${escapeHTML(m.name)}</option>`).join('');
 
-  let payments = [...data.payments].sort((a, b) => b.date.localeCompare(a.date) || b.id.localeCompare(a.id));
-  if (filterMemberId) payments = payments.filter(p => p.memberId === filterMemberId);
+  let visiblePayments = [...payments].sort((a, b) => b.date.localeCompare(a.date) || b.id.localeCompare(a.id));
+  if (filterMemberId) visiblePayments = visiblePayments.filter(p => p.memberId === filterMemberId);
 
   let historyHTML = '';
   let lastDate = null;
-  if (payments.length === 0) {
+  if (visiblePayments.length === 0) {
     historyHTML = '<div class="empty">Aucun paiement enregistré pour le moment.</div>';
   } else {
-    payments.forEach(p => {
+    visiblePayments.forEach(p => {
       if (p.date !== lastDate) {
         historyHTML += `<div class="date-group">${fmtDate(p.date)}</div>`;
         lastDate = p.date;
@@ -412,8 +438,8 @@ function render() {
       <form id="payment-form">
         <div class="field">
           <label for="pay-member">Membre</label>
-          <select id="pay-member" ${data.members.length === 0 ? 'disabled' : ''}>
-            ${data.members.length ? memberOptions : '<option value="">Ajoute d\'abord un membre</option>'}
+          <select id="pay-member" ${members.length === 0 ? 'disabled' : ''}>
+            ${members.length ? memberOptions : '<option value="">Ajoute d\'abord un membre</option>'}
           </select>
         </div>
         <div class="row2">
@@ -430,7 +456,7 @@ function render() {
           <label for="pay-note">Note (optionnel)</label>
           <input type="text" id="pay-note" placeholder="ex : 3 pintes">
         </div>
-        <button type="submit" class="btn-primary" ${data.members.length === 0 ? 'disabled' : ''}>Enregistrer</button>
+        <button type="submit" class="btn-primary" ${members.length === 0 ? 'disabled' : ''}>Enregistrer</button>
       </form>
     </section>
 
@@ -489,7 +515,37 @@ function escapeHTML(str) {
   return div.innerHTML;
 }
 
-loadData();
+if (membersRef && paymentsRef) {
+  onValue(membersRef, (snapshot) => {
+    const val = snapshot.val() || {};
+    members = Object.keys(val).map(id => ({ id, name: val[id].name }));
+    membersLoaded = true;
+    render();
+  }, (err) => {
+    console.error(err);
+    connectionError = true;
+    render();
+  });
+
+  onValue(paymentsRef, (snapshot) => {
+    const val = snapshot.val() || {};
+    payments = Object.keys(val).map(id => ({
+      id,
+      memberId: val[id].memberId,
+      amount: val[id].amount,
+      date: val[id].date,
+      note: val[id].note || ''
+    }));
+    paymentsLoaded = true;
+    render();
+  }, (err) => {
+    console.error(err);
+    connectionError = true;
+    render();
+  });
+} else {
+  render();
+}
 </script>
 </body>
 </html>
