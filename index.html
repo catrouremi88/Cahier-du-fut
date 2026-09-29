@@ -256,6 +256,9 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/fireba
 import {
   getDatabase, ref, onValue, push, remove, set
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
+import {
+  getAuth, signInAnonymously, onAuthStateChanged
+} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 
 // Configuration de ton projet Firebase
 const firebaseConfig = {
@@ -268,18 +271,20 @@ const firebaseConfig = {
   appId: "1:440799283443:web:96ffb50dd4e7cc378a8f86"
 };
 
-let fbApp, db;
+let fbApp, db, auth;
 let connectionError = false;
+let authReady = false;
 try {
   fbApp = initializeApp(firebaseConfig);
   db = getDatabase(fbApp);
+  auth = getAuth(fbApp);
 } catch (e) {
   console.error('Firebase init error:', e);
   connectionError = true;
 }
 
-const membersRef = db ? ref(db, 'members') : null;
-const paymentsRef = db ? ref(db, 'payments') : null;
+let membersRef = null;
+let paymentsRef = null;
 
 let members = [];   // [{id, name}]
 let payments = [];  // [{id, memberId, amount, date, note}]
@@ -515,7 +520,10 @@ function escapeHTML(str) {
   return div.innerHTML;
 }
 
-if (membersRef && paymentsRef) {
+function startListeners() {
+  membersRef = ref(db, 'members');
+  paymentsRef = ref(db, 'payments');
+
   onValue(membersRef, (snapshot) => {
     const val = snapshot.val() || {};
     members = Object.keys(val).map(id => ({ id, name: val[id].name }));
@@ -540,6 +548,20 @@ if (membersRef && paymentsRef) {
     render();
   }, (err) => {
     console.error(err);
+    connectionError = true;
+    render();
+  });
+}
+
+if (auth && db) {
+  onAuthStateChanged(auth, (user) => {
+    if (user) {
+      authReady = true;
+      startListeners();
+    }
+  });
+  signInAnonymously(auth).catch((e) => {
+    console.error('Auth error:', e);
     connectionError = true;
     render();
   });
